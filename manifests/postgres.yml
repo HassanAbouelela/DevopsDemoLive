@@ -1,0 +1,85 @@
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+    name: postgres-drive
+    namespace: dbs
+    labels:
+        app: postgres
+spec:
+    storageClassName: standard
+    accessModes:
+        - ReadWriteOnce
+    resources:
+        requests:
+            storage: 1Gi
+
+---
+apiVersion: v1
+kind: Secret
+
+metadata:
+    name: postgres-key
+    namespace: dbs
+data:
+    POSTGRES_DB: c2l0ZQ==
+    POSTGRES_USER: cG9zdGdyZXM=
+    POSTGRES_PASSWORD: RW0zOC42IUVRPygycTY1Mz5kXzc7M0wzLWltNUB4OmZqNkhTPTkuXFRQXEFQOEVDQ1w=
+
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+    name: postgres
+    namespace: dbs
+spec:
+    replicas: 1
+    strategy:
+        type: Recreate
+    selector:
+        matchLabels:
+            db: postgres
+    template:
+        metadata:
+            labels:
+                db: postgres
+        spec:
+            containers:
+                - name: postgres
+                  image: postgres:16-alpine
+                  imagePullPolicy: IfNotPresent
+                  ports:
+                      - containerPort: 5432
+                        name: postgres
+                  volumeMounts:
+                      -   name: postgres-data
+                          mountPath:  /var/lib/postgresql/data
+                          subPath: pgdata
+
+                      -   name: dshm
+                          mountPath: /dev/shm
+                  envFrom:
+                      - secretRef:
+                            name: postgres-key
+            volumes:
+                - name: postgres-data
+                  persistentVolumeClaim:
+                      claimName: postgres-drive
+
+                - name: dshm
+                  emptyDir:
+                      medium: Memory
+                      sizeLimit: 0.5Gi
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+    name: postgres
+    namespace: dbs
+spec:
+    selector:
+        db: postgres
+    ports:
+        - protocol: TCP
+          port: 5432
+          targetPort: postgres
