@@ -16,12 +16,19 @@ services:
             timeout: 1s
             retries: 5
 
+    redis:
+        image: redis:alpine
+        ports:
+            - 6379:6379
+
     site:
         build:
             context: .
             dockerfile: Dockerfile
         environment:
             DB_URI: "postgresql://postgres:postgres@postgres-db:5432/site"
+            REDIS_URI: "redis://redis:6379"
+            USE_CACHE: true
         depends_on:
             postgres-db:
                 condition: service_healthy
